@@ -33,3 +33,4 @@ Also, if you have personally tested on a particular platform, I'd love to someho
 - Conversion to support include files, rather than one large file (more modular structure to the script)
 - General support for Microsoft Windows operating system
 - Documentation for aliases in `~/.bash_profile` to automate even more of your development workflow
+- Option to delete backup files older than xx days
