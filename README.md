@@ -12,6 +12,8 @@ While MyGrate™ has been specifically tested on `MySQL 14.14 Distrib 5.7.13`, t
 
 Initial testing has been done on Linux and Mac OS.
 
+If you find this script useful, [donations are appreciated](https://flattr.com/submit/auto?fid=9ze3l6&url=https%3A%2F%2Fgithub.com%2Fwill-ashworth%2FMyGrate) (but not expected), and help further development.
+
 ## Getting Started
 
 ### Clone this repo
