@@ -32,7 +32,7 @@ set -o pipefail     # capture fail exit codes in piped commands
 
 # Other variables
 [ "$NOW" ]             ||  NOW=$(date +"%Y%m%d-%H%M%S")
-[ "$SOURCE" ]          ||  SOURCE=
+# [ "$SOURCE" ]          ||  SOURCE=
 
 # Evaluate the backup directory path to ensure it's not using tilde (~)
 # We really want full paths to be safer
@@ -105,7 +105,7 @@ NARGS=-1; while [ "$#" -ne "$NARGS" ]; do NARGS=$#; case $1 in
 		VERBOSE=$(( VERBOSE + 1 )) && shift && echo "#-INFO: VERBOSE=$VERBOSE"; ;;
 
     # CONFIGURATION
-    -c|--config)               # Override to pass a custom config file if desired
+    -c|--config)               # Override to pass a custom config file location if desired
         shift && CONFIG="$1" && shift && vrb "#-INFO: CONFIG=$CONFIG"; ;;
 
 	# PAIRS
@@ -173,8 +173,14 @@ fi
         die "It doesn't look like you've entered a valid source. Please try 'remote' or 'local'."
     fi
 
+[ $# -gt 0 -a -z "$REMOTE_HOST" ]  &&  REMOTE_HOST="$1"  &&  shift
+[ "$REMOTE_HOST" ]  ||  die "You must tell us which remote server name you want to interact with."
+
 [ $# -gt 0 -a -z "$REMOTE_DB" ]  &&  REMOTE_DB="$1"  &&  shift
 [ "$REMOTE_DB" ]  ||  die "You must tell us which remote database name you want to interact with."
+
+[ $# -gt 0 -a -z "$LOCAL_HOST" ]  &&  LOCAL_HOST="$1"  &&  shift
+[ "$LOCAL_HOST" ]  ||  die "You must tell us which local server name you want to interact with."
 
 [ $# -gt 0 -a -z "$LOCAL_DB" ]  &&  LOCAL_DB="$1"  &&  shift
 [ "$LOCAL_DB" ]  ||  die "You must tell us which local database name you want to interact with."
@@ -201,6 +207,8 @@ if [[ ! -d "`eval echo ${BACKUP_DIR//>}`" ]]; then
     mkdir_backup_path
 fi
 
+vrb "$BACKUP_DIR"
+
 ###############################################################################
 
 # ----------------------------------------
@@ -214,7 +222,7 @@ create_mysql_credentials() {
     local PASS=$3
     local PORT=$4
 
-    out "We couldn't determine a saved MySQL profile for '$HOST'. We're setting that up for you, but it requires a password to be typed. Please note that you'll only have to do this once for '$HOST'; unless/until the password for that MySQL server is eventually changed."
+    out "We couldn't determine a saved MySQL profile for '$HOST'. We're setting that up for you now, but it requires a password to be typed. Please note that you'll only have to do this once for '$HOST'; unless/until the password for that MySQL server is eventually changed."
     out ""
     out "When prompted, please provide the following password:"
     out "$PASS"
@@ -258,8 +266,13 @@ verify_mysql_credentials() {
 
 # Verify some permissions with MySQL
 vrb "We need to setup some access information for MySQL to work as expected."
+
+vrb "Verifying remote endpoint"
 verify_mysql_credentials $REMOTE_HOST $REMOTE_USER $REMOTE_PASS $REMOTE_PORT
+
+vrb "Verifying local endpoint"
 verify_mysql_credentials $LOCAL_HOST $LOCAL_USER $LOCAL_PASS $LOCAL_PORT
+
 vrb "Both MySQL accesses have been verified. Proceeding."
 
 # -----------------------------------------------------------------------
@@ -273,36 +286,27 @@ vrb "Both MySQL accesses have been verified. Proceeding."
 
 verify_database_exists() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
+    local DATABASE=$2
+    local SOURCE=$3
 
-    vrb $HOST
+    vrb "HOST: $HOST"
+    vrb "DATABASE: $DATABASE"
+    vrb "SOURCE: $SOURCE"
 
+    if [ -z "$HOST" ]; then
+        die "Exiting. It seems we can't figure out the hostname for your $SOURCE server."
+    fi
 
-
-
-    # ----------------------------------------
-
-    # REMOTE_EXISTS=$(mysql --login-path=$HOST --batch --skip-column-names -e "SHOW DATABASES LIKE \"$DATABASE\";" | grep "$DATABASE")
-
-    # if [[ $? != 0 ]]; then
-    #     die "first"
-    #     die "Checking for $DATABASE failed. Please report this error."
-    # elif [[ $REMOTE_EXISTS ]]; then
-    #     die "REMOTE EXISTS"
-    #     vrb "The database '$DATABASE' has been found to exist on '$HOST'. Proceeding."
-    # else
-    #     die "else"
-    #     die "Oops! We couldn't find '$DATABASE' on the '$HOST' server. Are you sure it's there?"
+    # if [ -z "$PORT" ]; then
+    #     die "Exiting. It seems we can't figure out the port for your $SOURCE server."
     # fi
-    # die "end of conditional checks"
 
-    # ----------------------------------------
+    if [ -z "$DATABASE" ]; then
+        die "Exiting. It seems we can't figure out the database name for your $SOURCE server."
+    fi
 
-
-
-
-    $MYSQL --login-path=$HOST --port=$PORT --batch --skip-column-names -e "SHOW DATABASES LIKE '"$DATABASE"';" > /tmp/$HOST_$DATABASE
+    # $MYSQL --login-path=$HOST --port=$PORT --batch --skip-column-names -e "SHOW DATABASES LIKE '"$DATABASE"';" > /tmp/$HOST_$DATABASE
+    $MYSQL --login-path=$HOST --batch --skip-column-names -e "SHOW DATABASES LIKE '"$DATABASE"';" > /tmp/$HOST_$DATABASE
 
     if [[ $? != 0 ]]; then
         die "Checking for $DATABASE failed. Please report this error."
@@ -319,7 +323,8 @@ verify_database_exists() {
 
                 [Yy]* )
                     out "Thank you. Creating $DATABASE";
-                    create_database $HOST $PORT $DATABASE;
+                    # create_database --login-path=$HOST $HOST $PORT $DATABASE;
+                    create_database --login-path=$HOST $HOST $DATABASE;
                     break;;
 
                 [Nn]* )
@@ -330,64 +335,103 @@ verify_database_exists() {
             esac
         done
 
-        # confirm it's good
-        verify_database_exists $HOST $PORT $DATABASE
+        # confirm it's good (again)
+        verify_database_exists $HOST $DATABASE $SOURCE
     fi
 }
 create_database() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
+    local DATABASE=$2
+    local SOURCE=$3
 
-    $MYSQL --login-path=$HOST --port=$PORT -e "CREATE DATABASE $DATABASE;"
-    vrb "'$DATABASE' has been successfully created on '$host'. Proceeding."
+    # $MYSQL --login-path=$HOST --port=$PORT -e "CREATE DATABASE $DATABASE;"
+    $MYSQL --login-path=$HOST -e "CREATE DATABASE $DATABASE;"
+    vrb "'$DATABASE' has been successfully created on '$HOST'. Proceeding."
 }
 empty_database() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
+    local DATABASE=$2
+    local SOURCE=$3
 
+    # TODO
     die "Coming soon..."
 }
 backup_database() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
+    local DATABASE=$2
+    local SOURCE=$3
+    local BACKUP_DIR=$(eval echo $BACKUP_DIR)
 
-    vrb "Starting backup of '$DATABASE' on '$HOST'"
-    $MYSQLDUMP --login-path=$HOST --port=$PORT $DATABASE > "$BACKUP_DIR/${HOST}__${DATABASE}__${NOW}.sql";
-    vrb "Completed backup of '$DATABASE' on '$HOST'"
+    vrb "Starting backup of '$DATABASE' for '$HOST'"
+
+    # Do the backup
+    $MYSQLDUMP --login-path=$HOST $DATABASE > "${BACKUP_DIR}/${HOST}__${DATABASE}__${NOW}.sql";
+
+    vrb "Completed backup of '$DATABASE' for '$HOST'"
 }
 migrate_prechecks() {
+
     # Confirm both databases exist
-    verify_database_exists $REMOTE_HOST $REMOTE_PORT $REMOTE_DB
-    verify_database_exists $LOCAL_HOST $LOCAL_PORT $LOCAL_DB
+    verify_database_exists $REMOTE_HOST $REMOTE_DB $SOURCE
+    verify_database_exists $LOCAL_HOST $LOCAL_DB $SOURCE
 
     # Backup both databases just in case
-    backup_database $REMOTE_HOST $REMOTE_PORT $REMOTE_DB
-    backup_database $LOCAL_HOST $LOCAL_PORT $LOCAL_DB
+    backup_database $REMOTE_HOST $REMOTE_DB $SOURCE
+    backup_database $LOCAL_HOST $LOCAL_DB $SOURCE
 }
 
-
-# Migrate remote to local mysql server
+# Migrate remote to local MySQL server
 migrate_remote_to_local() {
-    # local HOST=$1
-    # local PORT=$2
-    # local DATABASE=$3
+
+    local BACKUP_DIR=$(eval echo $BACKUP_DIR)
+    local BACKUP_FILE=$(eval echo "${BACKUP_DIR}/${REMOTE_HOST}__${REMOTE_DB}__${NOW}.sql")
 
     migrate_prechecks
-    die "END OF SCRIPT"
+
+    vrb "Starting MySQL import to ${LOCAL_HOST}.${LOCAL_DB}"
+    mysql --login-path=$LOCAL_HOST $LOCAL_DB < ${BACKUP_FILE}
+    vrb "Done with MySQL import to ${LOCAL_HOST}.${LOCAL_DB}"
 }
 
-# Migrate local to remote mysql server
+# Migrate local to remote MySQL server
 migrate_local_to_remote() {
-    echo "something"
+
+    local BACKUP_DIR=$(eval echo $BACKUP_DIR)
+    local BACKUP_FILE=$(eval echo "${BACKUP_DIR}/${LOCAL_HOST}__${LOCAL_DB}__${NOW}.sql")
+
+    migrate_prechecks
+
+    vrb "Starting MySQL import to ${REMOTE_HOST}.${REMOTE_DB}"
+    mysql --login-path=$REMOTE_HOST $REMOTE_DB < ${BACKUP_FILE}
+    vrb "Done with MySQL import to ${REMOTE_HOST}.${REMOTE_DB}"
 }
 
+# Figure out our directional copying
 if [[ $SOURCE == "remote" ]]; then
-    migrate_remote_to_local ###########
+    vrb "Preparing to copy your remote to local"
+    migrate_remote_to_local
+    vrb "Done copying your remote to local"
 else
-    echo "migrate_local_to_remote"
+    vrb "Preparing to copy your local to remote"
+    migrate_local_to_remote
+    vrb "Done copying your local to remote"
 fi
 
+# -------------------------------------------
+# TODO
+# -------------------------------------------
+# Enable to override via CLI
+# Enable to override via configuration file
+# Enable the ability to disable removal
+#
+# Automatically elete files older than 30 days
+remove_legacy_backups() {
+
+    find $(eval echo "${BACKUP_DIR}")/* -mtime +30 -exec rm {} \;
+}
+
+remove_legacy_backups
+
+# Exit for good measure
+vrb "END OF SCRIPT"
 exit;

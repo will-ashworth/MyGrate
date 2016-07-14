@@ -1,4 +1,4 @@
-[ "$BACKUP_DIR" ]      ||  BACKUP_DIR="~/www/__MYSQL/backup"
+[ "$BACKUP_DIR" ]      ||  BACKUP_DIR="{$HOME}/www/__MYSQL/backup"
 
 # # Remote DB credentials (ie., dev server)
 # [ "$REMOTE_HOST" ]     ||  REMOTE_HOST=
