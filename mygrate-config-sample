@@ -1,0 +1,2 @@
+# Sample configuration file for MyGrate
+[ "$BACKUP_DIR" ]      ||  BACKUP_DIR="{$HOME}/your/path/here"
