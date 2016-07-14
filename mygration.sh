@@ -285,10 +285,6 @@ vrb "Both MySQL accesses have been verified. Proceeding."
 
 
 verify_database_exists() {
-    # local HOST=$1
-    # local PORT=$2
-    # local DATABASE=$3
-    # local SOURCE=$4
     local HOST=$1
     local DATABASE=$2
     local SOURCE=$3
@@ -345,9 +341,8 @@ verify_database_exists() {
 }
 create_database() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
-    local SOURCE=$4
+    local DATABASE=$2
+    local SOURCE=$3
 
     # $MYSQL --login-path=$HOST --port=$PORT -e "CREATE DATABASE $DATABASE;"
     $MYSQL --login-path=$HOST -e "CREATE DATABASE $DATABASE;"
@@ -355,9 +350,8 @@ create_database() {
 }
 empty_database() {
     local HOST=$1
-    local PORT=$2
-    local DATABASE=$3
-    local SOURCE=$4
+    local DATABASE=$2
+    local SOURCE=$3
 
     # TODO
     die "Coming soon..."
@@ -386,44 +380,57 @@ migrate_prechecks() {
     backup_database $LOCAL_HOST $LOCAL_DB $SOURCE
 }
 
-
-# Migrate remote to local mysql server
+# Migrate remote to local MySQL server
 migrate_remote_to_local() {
 
+    local BACKUP_DIR=$(eval echo $BACKUP_DIR)
+    local BACKUP_FILE=$(eval echo "${BACKUP_DIR}/${REMOTE_HOST}__${REMOTE_DB}__${NOW}.sql")
+
     migrate_prechecks
 
-    # TODO
-    # Empty destination database
-    # Import source into destination database
-    die "migrate_remote_to_local"
+    vrb "Starting MySQL import to ${LOCAL_HOST}.${LOCAL_DB}"
+    mysql --login-path=$LOCAL_HOST $LOCAL_DB < ${BACKUP_FILE}
+    vrb "Done with MySQL import to ${LOCAL_HOST}.${LOCAL_DB}"
 }
 
-# Migrate local to remote mysql server
+# Migrate local to remote MySQL server
 migrate_local_to_remote() {
 
+    local BACKUP_DIR=$(eval echo $BACKUP_DIR)
+    local BACKUP_FILE=$(eval echo "${BACKUP_DIR}/${LOCAL_HOST}__${LOCAL_DB}__${NOW}.sql")
+
     migrate_prechecks
 
-    # TODO
-    # Empty destination database
-    # Import source into destination database
-    die "migrate_local_to_remote"
+    vrb "Starting MySQL import to ${REMOTE_HOST}.${REMOTE_DB}"
+    mysql --login-path=$REMOTE_HOST $REMOTE_DB < ${BACKUP_FILE}
+    vrb "Done with MySQL import to ${REMOTE_HOST}.${REMOTE_DB}"
 }
 
-
-# TODO
+# Figure out our directional copying
 if [[ $SOURCE == "remote" ]]; then
-    # migrate_remote_to_local ###########
-    die "migrate_remote_to_local"
+    vrb "Preparing to copy your remote to local"
+    migrate_remote_to_local
+    vrb "Done copying your remote to local"
 else
-    die "migrate_local_to_remote"
+    vrb "Preparing to copy your local to remote"
+    migrate_local_to_remote
+    vrb "Done copying your local to remote"
 fi
 
+# -------------------------------------------
 # TODO
-# Delete files older than X days
+# -------------------------------------------
+# Enable to override via CLI
+# Enable to override via configuration file
+# Enable the ability to disable removal
+#
+# Automatically elete files older than 30 days
 remove_legacy_backups() {
-    # # Delete files older than 30 days
-    # find $backup_path/* -mtime +30 -exec rm {} \;
+
+    find $(eval echo "${BACKUP_DIR}")/* -mtime +30 -exec rm {} \;
 }
+
+remove_legacy_backups
 
 # Exit for good measure
 vrb "END OF SCRIPT"
