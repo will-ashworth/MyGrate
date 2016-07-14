@@ -1,5 +1,9 @@
 # MyGration™
 
+## IMPORTANT
+
+_Consider the below copy placeholder. The script is undergoing testing right now, and I'll update shortly. It would be wise to test this on a separate database for the moment. Working through most of the bugs right now, and should have something up soon if all goes well!_
+
 ## Overview
 
 MyGration™ is a MySQL transport script written in Bash to assist with migrating data between two systems. At its core, it's a pretty simple concept many of us are already familiar with. The issue is that manually doing this is inefficient, and time consuming. This script aims to provide a flexible way to semi-automate a lot of the mundane tediousness you already encounter in your day-to-day.
