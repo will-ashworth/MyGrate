@@ -120,6 +120,12 @@ An example may include a common task you handle every day; such as copying a pro
 
 Similarly, if you wanted to setup an alias for the reversal (local-to-dev) to deploy your local changes to the live server, you could setup another alias like `local_prod_somesite`.
 
+## Backups
+
+Backups (for the moment) are automatic, and cleanup is automatic as well. Upon each script run, backup cleanup will remove anything older than 30 days.
+
+Eventually I plan to have this configurable as a parameter or config file option to adjust the retention timeframe.
+
 ## Support
 
 Something gone wrong? Maybe I can help. Please create an issue on Github, and provide as much detail about the problem as you possibly can.
