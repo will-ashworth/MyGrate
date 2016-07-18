@@ -323,8 +323,6 @@ verify_database_exists() {
 
                 [Yy]* )
                     out "Thank you. Creating $DATABASE";
-                    # create_database --login-path=$HOST $HOST $PORT $DATABASE;
-                    # create_database --login-path=$HOST $HOST $DATABASE;
                     create_database $HOST $DATABASE;
                     break;;
 
